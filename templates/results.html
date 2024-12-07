@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Log Analysis Results</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <h1>Log Analysis Results</h1>
+
+        <h2>Requests per IP</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>IP Address</th>
+                    <th>Request Count</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for ip, count in results.ip_requests %}
+                <tr>
+                    <td>{{ ip }}</td>
+                    <td>{{ count }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+        <h2>Most Frequently Accessed Endpoint</h2>
+        <p>{{ results.most_accessed_endpoint[0] }} (Accessed {{ results.most_accessed_endpoint[1] }} times)</p>
+
+        <h2>Suspicious Activity Detected</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>IP Address</th>
+                    <th>Failed Login Attempts</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for ip, count in results.suspicious_activity %}
+                <tr>
+                    <td>{{ ip }}</td>
+                    <td>{{ count }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+        <a href="/download" class="download-link">Download Results as CSV</a>
+    </div>
+</body>
+</html>
