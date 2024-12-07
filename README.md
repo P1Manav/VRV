@@ -81,6 +81,6 @@ Access at [http://127.0.0.1:5000/](http://127.0.0.1:5000/).
 
 **Below are images of the web interface:**
 
-<img src="images/home" alt="Homepage">
-<img src="images/answer" alt="Log Preview">
-<img src="iamges/generate" alt="Analysis Results">
+<img src="images/home.png" alt="Homepage">
+<img src="images/answer.png" alt="Log Preview">
+<img src="iamges/generate.png" alt="Analysis Results">
