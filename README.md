@@ -83,12 +83,12 @@ Access at [http://127.0.0.1:5000/](http://127.0.0.1:5000/).
 
 <img src="images/home.png" alt="Homepage">
 <p align="center">
-  <img src="images/generate.png" alt="generate" width="50%">
-  <img src="images/upload_preview.png" alt="upload_preview" width="50%">
+  <img src="images/generate.png" alt="generate" width="400">
+  <img src="images/upload_preview.png" alt="upload_preview" width="400">
 </p>
 <p align="center">
-  <img src="images/generate_analysis.png" alt="generate_analysis" width="50%">
-  <img src="images/upload_analysis.png" alt="upload_analysis" width="50%">
+  <img src="images/generate_analysis.png" alt="generate_analysis" width="400">
+  <img src="images/upload_analysis.png" alt="upload_analysis" width="400">
 </p>
 
 ### Answer to the sample log
