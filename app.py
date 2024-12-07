@@ -1,64 +1,18 @@
-from flask import Flask, request, render_template, send_file, url_for
-import csv
-from collections import Counter
+from flask import Flask, request, render_template, redirect, url_for, send_file # type: ignore
 import os
+import random
+import csv
+from log_analysis import analyze_logs
 
 app = Flask(__name__)
-UPLOAD_FOLDER = "uploads"
+
+# Define the upload directory for files
+UPLOAD_FOLDER = 'uploads'
+STATIC_FOLDER = 'static'
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
-
-SUSPICIOUS_THRESHOLD = 10  # Threshold for flagging suspicious activity
-OUTPUT_CSV = "log_analysis_results.csv"
-
-# Function to parse the log file
-def parse_logs(log_file):
-    ip_requests = Counter()
-    endpoint_access = Counter()
-    failed_logins = Counter()
-
-    with open(log_file, 'r') as file:
-        for line in file:
-            parts = line.split()
-            ip = parts[0]
-            endpoint = parts[6]
-            status_code = parts[8]
-            message = line.strip().split('"')[-1] if "Invalid credentials" in line else None
-
-            # Count requests per IP
-            ip_requests[ip] += 1
-
-            # Count endpoint access
-            endpoint_access[endpoint] += 1
-
-            # Count failed login attempts
-            if status_code == "401" or message == "Invalid credentials":
-                failed_logins[ip] += 1
-
-    return ip_requests, endpoint_access, failed_logins
-
-# Function to save results to CSV
-def save_to_csv(ip_requests, most_accessed_endpoint, failed_logins):
-    with open(OUTPUT_CSV, 'w', newline='') as csvfile:
-        writer = csv.writer(csvfile)
-
-        # Write Requests per IP
-        writer.writerow(["IP Address", "Request Count"])
-        for ip, count in ip_requests.most_common():
-            writer.writerow([ip, count])
-
-        # Write Most Accessed Endpoint
-        writer.writerow([])
-        writer.writerow(["Most Frequently Accessed Endpoint"])
-        writer.writerow(["Endpoint", "Access Count"])
-        writer.writerow(most_accessed_endpoint)
-
-        # Write Suspicious Activity
-        writer.writerow([])
-        writer.writerow(["Suspicious Activity Detected"])
-        writer.writerow(["IP Address", "Failed Login Count"])
-        for ip, count in failed_logins.items():
-            if count > SUSPICIOUS_THRESHOLD:
-                writer.writerow([ip, count])
+os.makedirs(STATIC_FOLDER, exist_ok=True)
+app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+app.config['STATIC_FOLDER'] = STATIC_FOLDER
 
 @app.route('/')
 def index():
@@ -66,43 +20,93 @@ def index():
 
 @app.route('/upload', methods=['POST'])
 def upload_file():
-    if 'file' not in request.files:
-        return "No file uploaded", 400
+    if request.method == 'POST':
+        file = request.files['logfile']
+        if file:
+            filepath = os.path.join(app.config['UPLOAD_FOLDER'], file.filename)
+            file.save(filepath)
+            
+            # Read and display the log content
+            with open(filepath, 'r') as f:
+                log_content = f.read()
+            
+            return render_template('preview.html', log_content=log_content, filepath=filepath)
+    return redirect(url_for('index'))
+
+@app.route('/generate', methods=['POST'])
+def generate_file():
+    filepath = os.path.join(app.config['UPLOAD_FOLDER'], 'generated_log_file.txt')
+    generate_log_file(filepath)
+    with open(filepath, 'r') as f:
+        log_content = f.read()
     
-    file = request.files['file']
-    if file.filename == '':
-        return "No selected file", 400
+    return render_template('preview.html', log_content=log_content, filepath=filepath)
 
-    if file:
-        # Save uploaded file
-        file_path = os.path.join(UPLOAD_FOLDER, file.filename)
-        file.save(file_path)
+@app.route('/analyze/<filepath>', methods=['GET'])
+def analyze(filepath):
+    ip_access_counts, most_accessed_endpoint, most_accessed_count, suspicious_activity, total_requests = analyze_logs(filepath)
+    print("Suspicious Activity List:", suspicious_activity)
+    
+    # Save the analysis results to a CSV file in the static folder
+    csv_path = os.path.join(app.config['STATIC_FOLDER'], 'log_analysis_results.csv')
+    with open(csv_path, 'w', newline='') as csvfile:
+        writer = csv.writer(csvfile)
+        writer.writerow(['IP Address', 'Access Count'])
+        for ip, count in ip_access_counts:
+            writer.writerow([ip, count])
+        
+        writer.writerow([])
+        writer.writerow(['Most Accessed Endpoint', 'Access Count'])
+        writer.writerow([most_accessed_endpoint, most_accessed_count])
+        
+        writer.writerow([])
+        writer.writerow(['IP Address', 'Failed Login Count'])
+        for ip, count in suspicious_activity:
+            writer.writerow([ip, count])
 
-        # Parse the logs
-        ip_requests, endpoint_access, failed_logins = parse_logs(file_path)
+    # Render the results page with the analysis
+    return render_template('results.html',
+                           ip_access_counts=ip_access_counts,
+                           most_accessed_endpoint=most_accessed_endpoint,
+                           most_accessed_count=most_accessed_count,
+                           suspicious_activity=suspicious_activity,
+                           total_requests=total_requests,
+                           csv_file_path='log_analysis_results.csv')
 
-        # Determine the most frequently accessed endpoint
-        most_accessed_endpoint = endpoint_access.most_common(1)[0]
+@app.route('/download_csv')
+def download_csv():
+    csv_path = os.path.join(app.config['STATIC_FOLDER'], 'log_analysis_results.csv')
+    if os.path.exists(csv_path):
+        return send_file(csv_path, as_attachment=True)
+    return "CSV file not found."
 
-        # Save results to CSV
-        save_to_csv(ip_requests, most_accessed_endpoint, failed_logins)
+def generate_log_file(filename):
+    endpoints = ["/home", "/login", "/about", "/dashboard", "/contact", "/profile", "/register", "/feedback"]
+    status_codes = [200, 401, 404, 500]
+    ip_count = random.randint(7, 15)
+    suspicious_ips_count = random.randint(1, 5)
+    total_logs = random.randint(100, 200)
 
-        # Prepare data for display
-        results = {
-            "ip_requests": ip_requests.most_common(),
-            "most_accessed_endpoint": most_accessed_endpoint,
-            "suspicious_activity": [
-                (ip, count)
-                for ip, count in failed_logins.items()
-                if count > SUSPICIOUS_THRESHOLD
-            ]
-        }
+    # Generate unique IP addresses
+    ip_pool = set()
+    while len(ip_pool) < ip_count:
+        ip = f"{random.randint(0, 255)}.{random.randint(0, 255)}.{random.randint(0, 255)}.{random.randint(0, 255)}"
+        ip_pool.add(ip)
+    ip_pool = list(ip_pool)
+    
+    suspicious_ips = random.sample(ip_pool, suspicious_ips_count)
 
-        return render_template('results.html', results=results)
-
-@app.route('/download')
-def download_file():
-    return send_file(OUTPUT_CSV, as_attachment=True)
+    with open(filename, 'w') as file:
+        for _ in range(total_logs):
+            ip = random.choice(ip_pool)
+            endpoint = random.choice(endpoints)
+            status_code = random.choice(status_codes)
+            message = "Invalid credentials" if status_code == 401 and endpoint == "/login" else None
+            log_entry = f'{ip} - - [07/Dec/2024:10:{random.randint(10,59)}:{random.randint(10,59)} +0000] "GET {endpoint} HTTP/1.1" {status_code} {random.randint(128, 1024)}'
+            if message:
+                log_entry += f' "{message}"'
+            log_entry += "\n"
+            file.write(log_entry)
 
 if __name__ == '__main__':
     app.run(debug=True)

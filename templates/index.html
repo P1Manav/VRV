@@ -1,18 +1,35 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Log File Analysis</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="stylesheet" href="/static/style.css">
+    <title>Log Analyzer</title>
 </head>
+
 <body>
-    <div class="container">
-        <h1>Upload a Log File for Analysis</h1>
-        <form action="/upload" method="POST" enctype="multipart/form-data">
-            <input type="file" name="file" accept=".log" required>
-            <button type="submit">Upload and Analyze</button>
-        </form>
-    </div>
+    <header>
+        <nav>
+            <a href="/">
+                <h1>VRV Assignment</h1>
+            </a>
+        </nav>
+    </header>
+    <main>
+        <div class="container">
+            <h1>Log Analyzer</h1>
+            <form action="/upload" method="post" enctype="multipart/form-data">
+                <label for="logfile">Upload Log File</label>
+                <input type="file" name="logfile" id="logfile">
+                <button type="submit">Upload and Analyze</button>
+            </form>
+            <hr>
+            <form action="/generate" method="post">
+                <button type="submit">Generate Random Log File</button>
+            </form>
+        </div>
+    </main>
 </body>
+
 </html>

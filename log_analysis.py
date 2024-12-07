@@ -1,87 +1,63 @@
 import csv
-from collections import Counter
+from collections import defaultdict
 
-# Configuration
-LOG_FILE = "sample.log"  # Replace with the actual log file path
-SUSPICIOUS_THRESHOLD = 10  # Threshold for flagging suspicious activity
-OUTPUT_CSV = "log_analysis_results.csv"
+def analyze_logs(filepath):
+    ip_access_counts = defaultdict(int)
+    endpoint_access_counts = defaultdict(int)
+    suspicious_activity = defaultdict(int)
+    total_requests = 0
 
-# Function to parse the log file
-def parse_logs(log_file):
-    ip_requests = Counter()
-    endpoint_access = Counter()
-    failed_logins = Counter()
-
-    with open(log_file, 'r') as file:
-        for line in file:
+    # Read the log file and process it line by line
+    with open(filepath, 'r') as file:
+        lines = file.readlines()
+        for line in lines:
             parts = line.split()
-            ip = parts[0]
-            endpoint = parts[6]
-            status_code = parts[8]
-            message = line.strip().split('"')[-1] if "Invalid credentials" in line else None
-            
-            # Count requests per IP
-            ip_requests[ip] += 1
-            
-            # Count endpoint access
-            endpoint_access[endpoint] += 1
-            
-            # Count failed login attempts
-            if status_code == "401" or message == "Invalid credentials":
-                failed_logins[ip] += 1
-    
-    return ip_requests, endpoint_access, failed_logins
+            if len(parts) > 6:  # Ensure the line has enough parts to parse
+                ip = parts[0]
+                endpoint = parts[6]
+                status_code = int(parts[8])  # Assuming the status code is at index 8
+                message = ' '.join(parts[9:])  # Capture the message part if present
 
-# Function to save results to CSV
-def save_to_csv(ip_requests, most_accessed_endpoint, failed_logins):
-    with open(OUTPUT_CSV, 'w', newline='') as csvfile:
-        writer = csv.writer(csvfile)
-        
-        # Write Requests per IP
-        writer.writerow(["IP Address", "Request Count"])
-        for ip, count in ip_requests.most_common():
-            writer.writerow([ip, count])
-        
-        # Write Most Accessed Endpoint
-        writer.writerow([])
-        writer.writerow(["Most Frequently Accessed Endpoint"])
-        writer.writerow(["Endpoint", "Access Count"])
-        writer.writerow(most_accessed_endpoint)
-        
-        # Write Suspicious Activity
-        writer.writerow([])
-        writer.writerow(["Suspicious Activity Detected"])
-        writer.writerow(["IP Address", "Failed Login Count"])
-        for ip, count in failed_logins.items():
-            if count > SUSPICIOUS_THRESHOLD:
-                writer.writerow([ip, count])
+                # Count total requests per IP
+                ip_access_counts[ip] += 1
+                total_requests += 1
 
-# Main logic
-def main():
-    # Parse the logs
-    ip_requests, endpoint_access, failed_logins = parse_logs(LOG_FILE)
+                # Count endpoint accesses
+                endpoint_access_counts[endpoint] += 1
 
-    # Determine the most frequently accessed endpoint
-    most_accessed_endpoint = endpoint_access.most_common(1)[0]
+                # Detect failed login attempts based on the message "Invalid credentials"
+                if status_code == 401 and "Invalid credentials" in message:
+                    suspicious_activity[ip] += 1
 
-    # Display the results
-    print("IP Address           Request Count")
-    for ip, count in ip_requests.most_common():
-        print(f"{ip:20} {count}")
-    
-    print("\nMost Frequently Accessed Endpoint:")
-    print(f"{most_accessed_endpoint[0]} (Accessed {most_accessed_endpoint[1]} times)")
+    # Identify the most accessed endpoint and its access count
+    most_accessed_endpoint, most_accessed_count = max(endpoint_access_counts.items(), key=lambda item: item[1])
 
-    print("\nSuspicious Activity Detected:")
-    print("IP Address           Failed Login Attempts")
-    for ip, count in failed_logins.items():
-        if count > SUSPICIOUS_THRESHOLD:
-            print(f"{ip:20} {count}")
-    
-    # Save the results to CSV
-    save_to_csv(ip_requests, most_accessed_endpoint, failed_logins)
-    print(f"\nResults saved to {OUTPUT_CSV}")
+    # Identify suspicious IPs (IPs with more than 0 failed login attempts)
+    suspicious_activity_list = [(ip, count) for ip, count in suspicious_activity.items() if count > 10]
 
-# Execute the script
-if __name__ == "__main__":
-    main()
+    # Convert ip_access_counts to a list of tuples for template rendering
+    ip_access_counts_list = list(ip_access_counts.items())
+
+    # Save results to CSV file
+    with open('log_analysis_results.csv', 'w', newline='') as csvfile:
+        # Write IP access counts to CSV
+        fieldnames = ['IP Address', 'Request Count']
+        writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+        writer.writeheader()
+        for ip, count in ip_access_counts_list:
+            writer.writerow({'IP Address': ip, 'Request Count': count})
+
+        # Add most accessed endpoint to the CSV
+        csvfile.write('\n')
+        writer = csv.DictWriter(csvfile, fieldnames=['Endpoint', 'Access Count'])
+        writer.writeheader()
+        writer.writerow({'Endpoint': most_accessed_endpoint, 'Access Count': most_accessed_count})
+
+        # Add suspicious activity to the CSV
+        csvfile.write('\n')
+        writer = csv.DictWriter(csvfile, fieldnames=['IP Address', 'Failed Login Count'])
+        writer.writeheader()
+        for ip, count in suspicious_activity_list:
+            writer.writerow({'IP Address': ip, 'Failed Login Count': count})
+
+    return ip_access_counts_list, most_accessed_endpoint, most_accessed_count, suspicious_activity_list, total_requests

@@ -1,4 +1,4 @@
-IP Address,Request Count
+IP Address,Access Count
 208.2.150.84,8
 170.205.67.181,10
 157.246.246.211,10
@@ -11,7 +11,7 @@ IP Address,Request Count
 186.231.44.170,7
 67.117.226.10,15
 
-Endpoint,Access Count
+Most Accessed Endpoint,Access Count
 /contact,22
 
 IP Address,Failed Login Count
